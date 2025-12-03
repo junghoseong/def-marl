@@ -26,7 +26,7 @@ from .utils import compute_dec_efocp_gae, compute_dec_efocp_V
 from .base import Algorithm
 
 
-class DefMARL(Algorithm):
+class EFXplorer(Algorithm):
     def __init__(
             self,
             env: MultiAgentEnv,
@@ -58,7 +58,7 @@ class DefMARL(Algorithm):
             use_prev_init: bool = False,
             **kwargs
     ):
-        super(DefMARL, self).__init__(
+        super(EFXplorer, self).__init__(
             env=env,
             node_dim=node_dim,
             edge_dim=edge_dim,
@@ -392,18 +392,10 @@ class DefMARL(Algorithm):
         def body_(rnn_state, inp):
             graph, z = inp
             rnn_state_Vl, rnn_state_Vh = rnn_state
-            
-            # Calculate V_φ^l(x, z)
-            # Note: Critic uses z[0] (same z for all agents)
             value, new_rnn_state_V = self.critic.get_value(critic_params, graph, rnn_state_Vl, z[0][None, :])
-            
-            # Calculate V_ψ^h(o_i, z)
-            # Note: Vh uses per-agent z
             value_h, new_rnn_state_Vh = self.Vh.get_value(Vh_params, graph, rnn_state_Vh, z)
-            
             return (new_rnn_state_V, new_rnn_state_Vh), (value, value_h, rnn_state_Vl, rnn_state_Vh)
 
-        # Scan over all timesteps
         (final_rnn_state_Vl, final_rnn_state_Vh), (T_Vl, Tah_Vh, rnn_states_Vl, rnn_states_Vh) = (
             jax.lax.scan(body_, (init_rnn_state_Vl, init_rnn_state_Vh), (graphs, zs)))
 
@@ -447,11 +439,11 @@ class DefMARL(Algorithm):
         # calculate Dec-EFOCP GAE
         bTah_Qh, bT_Ql, bTa_Q = jax.vmap(
             ft.partial(compute_dec_efocp_gae, disc_gamma=self.gamma, gae_lambda=self.gae_lambda)
-        )(Tah_hs=rollout.costs, # h(x^k)
-          T_l=-rollout.rewards, # l(x^k) = -reward
-          T_z=rollout.zs.squeeze(-1)[:, :, 0], # z^k
-          Tp1ah_Vh=bTp1ah_Vh, # V_ψ^h(o_i^{k+1}, z^{k+1})
-          Tp1_Vl=bTp1_Vl) # V_φ^l(x^{k+1}, z^{k+1})
+        )(Tah_hs=rollout.costs,
+          T_l=-rollout.rewards,
+          T_z=rollout.zs.squeeze(-1)[:, :, 0],
+          Tp1ah_Vh=bTp1ah_Vh,
+          Tp1_Vl=bTp1_Vl)
 
         # calculate advantages and normalize
         bTa_V = jax_vmap(jax_vmap(compute_dec_efocp_V))(rollout.zs.squeeze(-1)[:, :, 0], bTah_Vh, bT_Vl)

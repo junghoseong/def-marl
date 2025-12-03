@@ -1,6 +1,8 @@
 import argparse
 import datetime
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "4"
+
 import ipdb
 import numpy as np
 import wandb

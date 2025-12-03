@@ -40,30 +40,42 @@ def rollout(
     -------
     data: Rollout
     """
+    # Initial state sampling
     key_x0, key_z0, key = jax.random.split(key, 3)
     if init_graph is None:
-        init_graph = env.reset(key_x0)
-    z0 = jax.random.uniform(key_z0, (1, 1), minval=-env.reward_max, maxval=-env.reward_min)
+        init_graph = env.reset(key_x0) # x^0 sampling
+        
+    # Initial z sampling (z_min ~ z_max)
+    z0 = jax.random.uniform(key_z0, (1, 1), minval=-env.reward_max, maxval=-env.reward_min) 
 
+    # Additional z sampling strategies
     z_key, key = jax.random.split(key, 2)
     rng = jax.random.uniform(z_key, (1, 1))
     z0 = jnp.where(rng > 0.7, -env.reward_max, z0)  # use z min
     z0 = jnp.where(rng < 0.2, -env.reward_min, z0)  # use z max
 
+    # Broadcast to all agents
     z0 = jnp.repeat(z0, env.num_agents, axis=0)
 
     def body(data, key_):
         graph, rnn_state, z = data
+        
+        # Sample action using policy π_θ
         action, log_pi, new_rnn_state = actor(graph, z, rnn_state, key_)
+        # actor = efxplorer.step() = policy.sample_action()
+
+        # Environment step        
         next_graph, reward, cost, done, info = env.step(graph, action)
 
-        # z dynamics
+        # z dynamics (z^{k+1} = z^k - l(x^k, π(x^k)))
+        # Note: reward is negative of l, so z + reward = z - l
         z_next = (z + reward) / gamma
         z_next = jnp.clip(z_next, -env.reward_max, -env.reward_min)
 
         return ((next_graph, new_rnn_state, z_next),
                 (graph, action, rnn_state, reward, cost, done, log_pi, next_graph, z))
 
+    # Scan over trajectory
     keys = jax.random.split(key, env.max_episode_steps)
     _, (graphs, actions, rnn_states, rewards, costs, dones, log_pis, next_graphs, zs) = (
         jax.lax.scan(body, (init_graph, init_rnn_state, z0), keys, length=env.max_episode_steps))

@@ -2,32 +2,6 @@
 
 # Def-MARL
 
-[![Conference](https://img.shields.io/badge/RSS-Accepted-success)](https://mit-realm.github.io/def-marl/)
-
-Jax official implementation of RSS2025 paper (Best Student Paper Award): [Songyuan Zhang](https://syzhang092218-source.github.io), [Oswin So](https://oswinso.xyz/), [Mitchell Black](https://www.blackmitchell.com/), [Zachary Serlin](https://zacharyserlin.com/) and [Chuchu Fan](https://chuchu.mit.edu): "[Solving Multi-Agent Safe Optimal Control with Distributed Epigraph Form MARL](https://mit-realm.github.io/def-marl/)". 
-
-[Dependencies](#Dependencies) •
-[Installation](#Installation) •
-[Quickstart](#Quickstart) •
-[Environments](#Environments) •
-[Algorithms](#Algorithms) •
-[Usage](#Usage)
-
-</div>
-
-<div align="center">
-    <img src="./media/video/MPETarget.gif" alt="MPETarget" width="16.2%"/>
-    <img src="./media/video/MPESpread.gif" alt="LidarLine" width="16.2%"/>
-    <img src="./media/video/MPEFormation.gif" alt="VMASReverseTransport" width="16.2%"/>
-    <img src="./media/video/MPELine.gif" alt="VMASWheel" width="16.2%"/>
-    <img src="./media/video/MPECorridor.gif" alt="VMASWheel" width="16.2%"/>
-    <img src="./media/video/MPEConnectSpread.gif" alt="VMASWheel" width="16.2%"/>
-</div>
-
-<div align="center">
-    <img src="./media/img/def-marl.jpg" alt="Def-MARL Framework" width="100%"/>
-</div>
-
 ## Dependencies
 
 We recommend to use [CONDA](https://www.anaconda.com/) to install the requirements:
@@ -69,16 +43,6 @@ python test.py --path ./logs/LidarSpread/def-marl/seed0_xxxxxxxxxx
 ### MPE
 
 We provide the following environments with the [MPE](https://github.com/openai/multiagent-particle-envs) (Multi-Agent Particle Environment) simulation engine: `MPETarget`, `MPESpread`, `MPEFormation`, `MPELine`, `MPECorridor`, `MPEConnectSpread`. In MPE, agents, goals/landmarks, and obstacles are represented as particles. Agents can observe other agents or obstacles when they are within their observation range. Agents follow the double integrator dynamics.
-
-<div align="center">
-    <img src="media/img/MPETarget.jpg" width="16.2%" alt="MPETarget">
-    <img src="media/img/MPESpread.jpg" width="16.2%" alt="MPESpread">
-    <img src="media/img/MPEFormation.jpg" width="16.2%" alt="MPEFormation">
-    <img src="media/img/MPELine.jpg" width="16.2%" alt="MPELine">
-    <img src="media/img/MPECorridor.jpg" width="16.2%" alt="MPECorridor">
-    <img src="media/img/MPEConnectSpread.jpg" width="16.2%" alt="MPEConnectSpread">
-    <img src="media/img/env_legend.jpg" alt="Legend" width="100%">
-</div>
 
 - `MPETarget`: The agents need to reach their pre-assigned goals.
 - `MPESpread`: The agents need to collectively cover a set of goals without having access to an assignment.

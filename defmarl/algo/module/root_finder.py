@@ -54,14 +54,14 @@ class RootFinder:
         def z_root_fn(z):
             h_Vh, _ = Vh_fn(z[None, None].repeat(self.n_agent, axis=0))
             h_Vh = h_Vh[i_agent]
-            Vh = h_Vh.max()
+            Vh = h_Vh.max() # maximum value of the constraint function
             root = -(Vh - self.h_tgt)
             return root
 
         solver = Chandrupatla(z_root_fn, n_iters=self.n_iters, init_t=0.5)
         opt_z, _, init_state = solver.run(self.z_min, self.z_max)
 
-        # The rootfinding is only valid if we bracketed the root.
+        # The rootfinding is only valid if we bracketed the root. (Edge cases)
         #         Vh < h_tgt is safe.
         #         => -(Vh - h_tgt) > 0 is safe.
         # If max(y1, y2) > 0, then both zmin and zmax are safe, so we take zmin.

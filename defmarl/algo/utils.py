@@ -117,4 +117,18 @@ def compute_dec_efocp_gae(
 
 def compute_dec_efocp_V(z: FloatScalar, Vhs: Float[Array, "a nh"], Vl: FloatScalar) -> FloatScalar:
     assert z.shape == Vl.shape, f"z shape {z.shape} should be same as Vl shape {Vl.shape}"
+    # V_i(x^τ, z; π) = max{V_i^h(o_i^τ; π), V^l(x^τ; π) - z}
     return jnp.maximum(Vhs.max(-1), (Vl - z))
+    # Vhs.max(-1): max over constraints for each agent
+    # Vl - z: reward value minus z
+    # max: take maximum (Epigraph form)
+
+def compute_dec_efxplorer_V(z: FloatScalar, Vhs: Float[Array, "a nh"], Vl: FloatScalar) -> FloatScalar:
+    assert z.shape == Vl.shape, f"z shape {z.shape} should be same as Vl shape {Vl.shape}"
+    # V_i(x^τ, z; π) = max{V_i^h(o_i^τ; π), V^l(x^τ; π) - z}
+    return jnp.maximum(Vhs.max(-1), (Vl - z))
+    # Vhs.max(-1): max over constraints for each agent
+    # Vl - z: reward value minus z
+    # max: take maximum (Epigraph form)
+    
+    
