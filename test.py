@@ -2,6 +2,8 @@ import argparse
 import datetime
 import functools as ft
 import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "7"
+
 import pathlib
 import ipdb
 import jax

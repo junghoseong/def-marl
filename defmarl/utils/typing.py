@@ -20,6 +20,7 @@ TFloat = Float[Array, "T"]
 # environment types
 Action = Float[Array, 'num_agents action_dim']
 Reward = Float[Array, '']
+IntrinsicReward = Float[Array, '']
 Cost = Float[Array, 'nh']
 Done = BoolScalar
 Info = Dict[str, Shaped[Array, '']]

@@ -1,7 +1,7 @@
 from typing import NamedTuple
 
 from ..utils.typing import Array
-from ..utils.typing import Action, Reward, Cost, Done
+from ..utils.typing import Action, Reward, Cost, Done, IntrinsicReward
 from ..utils.graph import GraphsTuple
 
 
@@ -10,6 +10,7 @@ class Rollout(NamedTuple):
     actions: Action
     rnn_states: Array
     rewards: Reward
+    intrinsic_rewards: IntrinsicReward
     costs: Cost
     dones: Done
     log_pis: Array

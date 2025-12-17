@@ -15,7 +15,7 @@ from matplotlib.collections import LineCollection
 
 from ..trainer.data import Rollout
 from ..utils.graph import EdgeBlock, GetGraph, GraphsTuple
-from ..utils.typing import Action, Array, Cost, Done, Info, Reward, State, AgentState
+from ..utils.typing import Action, Array, Cost, Done, Info, IntrinsicReward, Reward, State, AgentState
 from ..utils.utils import tree_index, MutablePatchCollection, save_anim
 from .base import MultiAgentEnv
 from .utils import get_node_goal_rng

@@ -122,13 +122,91 @@ def compute_dec_efocp_V(z: FloatScalar, Vhs: Float[Array, "a nh"], Vl: FloatScal
     # Vhs.max(-1): max over constraints for each agent
     # Vl - z: reward value minus z
     # max: take maximum (Epigraph form)
+    
+def compute_conservative_exploration_gae(
+    Tah_Aext: Float[Array, "T a"], # (T, n_agents) - Extrinsic advantages
+    T_Delta_team_int: Float[Array, "T"], # (T,) - Team intrinsic rewards
+    T_z: Float[Array, "T a"], # (T, n_agents) - Budget variables (same z per agent slot)
+) -> Float[Array, "T a"]:
+    """
+    Compute final advantage A_t (matching InforMARL structure for extrinsic-only ablation).
+    
+    Note: Original EFXplorer used recursive min: A_t^{(T)} = min{A_t^ext, A_{t+1}^{(T)}, ..., A_T^ext, S_t}
+    Modified for extrinsic-only ablation: A_t = A_t^ext (no min selection, matching InforMARL)
+    The function structure is preserved for future intrinsic reward activation.
+    
+    Returns
+    -------
+    Tah_A_final: (T, n_agents) - Final advantages (same as Tah_Aext for extrinsic-only)
+    """
+    T, n_agents = Tah_Aext.shape
+    
+    # Step 1: Compute S_t recursively (backward) - computed but not used for extrinsic-only
+    # S_t = R_t^int - z_t
+    # R_t^int = sum_{k=t}^T Δ_k^team-int
+    
+    # Compute cumulative intrinsic returns R_t^int (backward)
+    def compute_R_int(carry, inp):
+        delta_team_int, z_row = inp  # delta: scalar, z_row: (n_agents,)
+        R_int_next = carry
+        # R_t^int = Δ_t^team-int + R_{t+1}^int
+        R_int = delta_team_int + R_int_next
+        # S_t = R_t^int - z_t (per agent)
+        S_t = R_int - z_row  # (n_agents,)
+        return R_int, S_t
+    
+    # Initialize: R_T^int = Δ_T^team-int
+    R_int_final = T_Delta_team_int[-1]
+    z_final = T_z[-1]  # (n_agents,)
+    S_final = R_int_final - z_final  # (n_agents,)
+    
+    # Scan backward to compute all S_t (computed but not used for extrinsic-only)
+    _, Tah_S = jax.lax.scan(
+        compute_R_int,
+        R_int_final,
+        (T_Delta_team_int[:-1], T_z[:-1]),
+        reverse=True
+    )
+    # Append final S_T
+    Tah_S = jnp.concatenate([Tah_S, S_final[None, :]], axis=0)  # (T, n_agents)
+    
+    # Step 2: Return A_t^ext directly (matching InforMARL structure)
+    # Original: A_t^{(T)} = min{A_t^ext, A_{t+1}^{(T)}, ..., A_T^ext, S_t} (recursive)
+    # Modified for extrinsic-only: A_t = A_t^ext (no min selection, matching InforMARL)
+    # Future: Can be changed to A_t = min{A_t^ext, S_t} when intrinsic rewards are activated
+    Tah_A_final = Tah_Aext
+    
+    return Tah_A_final
 
-def compute_dec_efxplorer_V(z: FloatScalar, Vhs: Float[Array, "a nh"], Vl: FloatScalar) -> FloatScalar:
-    assert z.shape == Vl.shape, f"z shape {z.shape} should be same as Vl shape {Vl.shape}"
-    # V_i(x^τ, z; π) = max{V_i^h(o_i^τ; π), V^l(x^τ; π) - z}
-    return jnp.maximum(Vhs.max(-1), (Vl - z))
-    # Vhs.max(-1): max over constraints for each agent
-    # Vl - z: reward value minus z
-    # max: take maximum (Epigraph form)
+def compute_extrinsic_gae(
+    values: Float[Array, "T"],      # (T,) - Global extrinsic values
+    rewards: Float[Array, "T a"],   # (T, n_agents) - Extrinsic rewards
+    next_values: Float[Array, "Tp1"],  # (T+1,) - Next values
+    dones: Float[Array, "T"],       # (T,) - Done flags
+    gamma: float = 0.99,
+    gae_lambda: float = 0.95
+) -> Float[Array, "T a"]:
+    """
+    Compute extrinsic advantages A^ext(s_t, a_t)
     
+    Returns
+    -------
+    Tah_Aext: (T, n_agents) - Extrinsic advantages
+    """
+    # Sum rewards over agents for global value
+    T_rewards_sum = rewards.sum(axis=-1)  # (T,)
     
+    # Compute global advantages
+    T_targets, T_gaes = compute_gae(
+        values=values,
+        rewards=T_rewards_sum,
+        dones=dones,
+        next_values=next_values,
+        gamma=gamma,
+        gae_lambda=gae_lambda
+    )
+    
+    # Broadcast to agents (same advantage for all agents in global case)
+    Tah_Aext = T_gaes[:, None].repeat(rewards.shape[1], axis=1)  # (T, n_agents)
+    
+    return Tah_Aext

@@ -69,6 +69,7 @@ def rollout(
 
         # z dynamics (z^{k+1} = z^k - l(x^k, π(x^k)))
         # Note: reward is negative of l, so z + reward = z - l
+        
         z_next = (z + reward) / gamma
         z_next = jnp.clip(z_next, -env.reward_max, -env.reward_min)
 
@@ -79,7 +80,61 @@ def rollout(
     keys = jax.random.split(key, env.max_episode_steps)
     _, (graphs, actions, rnn_states, rewards, costs, dones, log_pis, next_graphs, zs) = (
         jax.lax.scan(body, (init_graph, init_rnn_state, z0), keys, length=env.max_episode_steps))
-    rollout_data = Rollout(graphs, actions, rnn_states, rewards, costs, dones, log_pis, next_graphs, zs)
+    # Create zero intrinsic_rewards for compatibility with Rollout structure
+    intrinsic_rewards = jnp.zeros_like(rewards)
+    rollout_data = Rollout(graphs, actions, rnn_states, rewards, intrinsic_rewards, costs, dones, log_pis, next_graphs, zs)
+    return rollout_data
+
+def rollout_efxplorer(
+    env: MultiAgentEnv,
+    actor: Callable,
+    init_rnn_state: Array,
+    key: PRNGKey,
+    gamma: float,
+    intrinsic_coef: float = 1.0,
+    init_graph: Optional[GraphsTuple] = None
+) -> Rollout:
+    """
+    Get a rollout from the environment using the actor with intrinsic reward calculation.
+    """
+    # Initial state sampling
+    key_x0, key_z0, key = jax.random.split(key, 3)
+    if init_graph is None:
+        init_graph = env.reset(key_x0)
+        
+    # Initial z sampling
+    z0 = jax.random.uniform(key_z0, (1, 1), minval=-env.reward_max, maxval=-env.reward_min)
+    z_key, key = jax.random.split(key, 2)
+    rng = jax.random.uniform(z_key, (1, 1))
+    z0 = jnp.where(rng > 0.7, -env.reward_max, z0)
+    z0 = jnp.where(rng < 0.2, -env.reward_min, z0)
+    z0 = jnp.repeat(z0, env.num_agents, axis=0)
+    
+    def body(data, key_):
+        graph, rnn_state, z = data
+        
+        # Sample action
+        action, log_pi, new_rnn_state = actor(graph, z, rnn_state, key_)
+        
+        # Env step
+        next_graph, reward, cost, done, info = env.step(graph, action)
+        
+        # Compute intrinsic reward (entropy)
+        intrinsic_reward = -log_pi * intrinsic_coef
+        Delta_team_int = intrinsic_reward.sum()
+        z_next = jnp.clip(z - Delta_team_int, -env.reward_max, -env.reward_min)
+        
+        return ((next_graph, new_rnn_state, z_next),
+                (graph, action, rnn_state, reward, intrinsic_reward, cost, done, log_pi, next_graph, z))
+
+    # Scan over trajectory
+    keys = jax.random.split(key, env.max_episode_steps)
+    _, (graphs, actions, rnn_states, rewards, intrinsic_rewards, costs, dones, log_pis, next_graphs, zs) = (
+        jax.lax.scan(body, (init_graph, init_rnn_state, z0), keys, length=env.max_episode_steps))
+    
+    rollout_data = Rollout(
+        graphs, actions, rnn_states, rewards, intrinsic_rewards, 
+        costs, dones, log_pis, next_graphs, zs)
     return rollout_data
 
 
@@ -118,7 +173,9 @@ def test_rollout(
                      (init_graph, init_actor_rnn_state, init_Vh_rnn_state),
                      keys,
                      length=env.max_episode_steps))
-    rollout_data = Rollout(graphs, actions, actor_rnn_states, rewards, costs, dones, log_pis, next_graphs, zs)
+    # Create zero intrinsic_rewards for compatibility with Rollout structure
+    intrinsic_rewards = jnp.zeros_like(rewards)
+    rollout_data = Rollout(graphs, actions, actor_rnn_states, rewards, intrinsic_rewards, costs, dones, log_pis, next_graphs, zs)
     return rollout_data
 
 
